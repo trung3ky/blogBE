@@ -3,10 +3,11 @@ var mysql = require('mysql');
 console.log("đang connect")
 
 var connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'myblog',
+    host: 'sql3.freesqldatabase.com',
+    user: 'sql3444338',
+    password: 'FC5bglUe2Q',
+    database: 'sql3444338',
+    port: '3306',
     multipleStatements: true
 });
 
