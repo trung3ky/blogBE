@@ -120,6 +120,6 @@ function TimeNow(){
 
 
  
-app.listen(process.env.PORT = 3001, () => {
+app.listen(process.env.PORT, () => {
     console.log('JSON Server is running');
 })
