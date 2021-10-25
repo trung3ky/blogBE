@@ -1,20 +1,15 @@
-var mysql = require('mysql');
 
-console.log("đang connect")
+const { Sequelize } = require('sequelize');
 
-var connection = mysql.createConnection({
-    host: 'sql3.freesqldatabase.com',
-    user: 'sql3444338',
-    password: 'FC5bglUe2Q',
-    database: 'sql3444338',
-    port: '3306',
-    multipleStatements: true
+const sequelize = new Sequelize('myblog', 'root', '', {
+    host: 'localhost',
+    dialect: 'mysql'
 });
 
-connection.connect(
-    function(err){
-        if(err) throw err;
-        console.log("thanh cong")
-    }
-);
-module.exports = connection;
+
+sequelize.authenticate()
+            .then(() => {
+                console.log("thành công")
+            })
+
+module.exports = sequelize;

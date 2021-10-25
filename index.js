@@ -4,7 +4,12 @@ const app = express()
 const connection = require('./controller/db')
 const cors = require('cors')
 const moment = require('moment'); 
- 
+const multer = require('multer')
+
+const User = require('./modal/user')
+const Blog = require('./modal/blog')
+
+app.use('/assets', express.static(__dirname + "/public"));
 app.use(bodyParser());
 app.use(cors())
 app.get('/', function (req, res) {
@@ -12,99 +17,171 @@ app.get('/', function (req, res) {
 })
 
 // log in
-app.post('/signin', (req, res) => {
+app.post('/signin', async (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
-
-    const signInSql = `select * from user where email = "${email}" and password = "${password}"`;
-
-    connection.query(signInSql, (err, results) => {
-        if(err) throw err;
-        console.log(results)
-        if(results.length > 0) {
-            res.json({
-                type: 'success',
-                data: results[0]
-            })
-        }else{
-            res.json({
-                type: 'error',
-            })
+    const user = await User.findAll({
+        where: {
+          "email": email,
+          "password": password
         }
-    })
+    });
+
+    if(user.length > 0){
+        res.json({
+            type: 'success',
+            data: user[0].dataValues
+        })
+    }
+    else{
+        res.json({
+            type: 'error',
+        })
+    }
 })
 
 // register
-app.post('/register', (req, res) => {
-    const {name, email, password, date, gender} = req.body;
+app.post('/register', async (req, res) => {
+    const {name, email, password, date, gender, image} = req.body;
     const d = new Date();
     const startDate = `${d.getFullYear()}:${d.getMonth()}:${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
 
-    const insertUser = `INSERT INTO user 
-    (name, password, address, email, gender, description, image, startDate, birthday) 
-    Values ("${name}", "${password}", "", "${email}", "${gender}", "", "", "${startDate}", "${date}")`;
+    const user = await User.create({
+        "name": name,
+        "password": password,
+        "email": email,
+        "birthday": date,
+        "gender": gender,
+        "image": image,
+        "startDate": startDate,
+    })
 
-    connection.query(insertUser, (err, results) => {
-        if(err) throw err;
-        
+    if(user){
         res.json(
             {
-                type: "success",
-                data: req.body
+                type: "success"
             }
         )
-    })
+    }else{
+        res.json(
+            {
+                type: "error"
+            }
+        )
+    }
 })
 
 
-app.get('/blog', function (req, res) {
-    const blogSql = `SELECT blog.*, cmt.*, user.name, user.image, count.count_cmt
-    FROM blog INNER JOIN 
-        (SELECT comment.* FROM comment INNER JOIN (SELECT MAX(id_comment) AS id_max 
-        FROM comment GROUP BY id_of_post) AS c ON comment.id_comment = c.id_max) AS cmt 
-    ON blog.id_post = cmt.id_of_post 
-    INNER JOIN user ON user.id = cmt.id_user_comment 
-    INNER JOIN (SELECT id_of_post, COUNT(id_comment) as count_cmt FROM comment
-    GROUP BY id_of_post) AS count
-    ON blog.id_post = count.id_of_post`
-    connection.query(blogSql, (err, resultsBlog) => {
-        if(err) throw err;
+app.get('/blog', async function (req, res) {
 
-        if(resultsBlog.length < 0){
-            res.json({type : "null"})
-        }else{
-            res.json({type: "success", data: resultsBlog})
+    const blogs = await Blog.findAll({
+        order: [
+            ['id_post', 'DESC'],
+        ]
+    });
+
+    if(blogs.length > 0) {
+        const blogList = []
+
+        for(let i = 0; i < blogs.length; i++) {
+            const inforUserPost = await User.findAll({
+                where: { "id": blogs[i].dataValues.id_user_post}
+            });
+
+            const blogUserPost = {
+                nameUserPost : inforUserPost[0].dataValues.name,
+                imageUserPost: inforUserPost[0].dataValues.image,
+                ...blogs[i].dataValues,
+                time_post: moment(blogs[i].dataValues.time_post).toNow(true)
+            }
+
+            blogList.push(blogUserPost);
         }
-    })
+
+        res.json({type: "success", data: blogList});
+
+        
+    }else{
+        res.json({type: "No"});
+    }
 })
 
-app.get('/user&iduser=:id' , function(req, res) {
+app.get('/user&iduser=:id' , async function(req, res) {
     var idUser = req.params.id
-    const userSql = `select * from user where id = ${idUser}`
-    connection.query(userSql, (err, results) => {
-        if(err) throw err;
+    if(Number(idUser)){
+        
+        const user = await User.findAll({
+            where: {
+              id: idUser
+            }
+        });
 
-        if(results.length > 0){
-            res.json({type : "success", data: results[0]})
+        if(user.length > 0){
+            res.json({type : "success", data: user[0].dataValues})
+        }else{
+            res.json({type : "Null", data: "người dùng không tồn tại"})
         }
+    }else{
+        res.json("không hợp lệ")
+    }
+})
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'public/images')
+    },
+    filename: function (req, file, cb) {
+        if(file){
+            cb(null, Date.now() + '-' +file.originalname )
+        }
+    }
+})
+
+const upload = multer({ storage: storage }).array('file')
+
+app.post("/add-post", async function(req, res) {
+    upload(req, res, async function (err) {
+        if (err instanceof multer.MulterError) {
+            return res.status(500).json(err)
+        } else if (err) {
+            return res.status(500).json(err)
+        }
+        // console.log(req.files)
+        // console.log(req.body)
+        
+        const {idUserPost, statusPost, contentPost, imagePost} = req.body
+        const timePost = TimeNow()
+        const nameImage = []
+        for(let i = 0; i < req.files.length; i++) {
+            nameImage.push(req.files[i].filename)
+        }
+        
+        if(idUserPost !== '' && statusPost !== '' && timePost !== ''){
+            if(contentPost || imagePost){
+                const addBlogSql = await Blog.create({
+                    "id_user_post": idUserPost,
+                    "status_post": statusPost,
+                    "content_post": contentPost,
+                    "image_post": nameImage.toString(),
+                    "time_post": timePost,
+                })
+
+                if(addBlogSql){
+                    console.log("ok")
+                    res.json({type: 'success'})
+                }
+            }
+        }
+
     })
 })
 
+   
 
-app.post("/add-post", function(req, res) {
-    const idUserPost = req.body.idUserPost
-    const contentPost = req.body.contentPost
-    const statusPost = req.body.statusPost
-    const imagePost = req.body.imagePost
-    const timePost = TimeNow()
 
     // const m = moment().format()
     // const m = moment(imagePost).toNow(true)
-    console.log(m)
 
-    console.log(imagePost)
-    
-})
 
 function TimeNow(){
     const date = new Date()
@@ -120,6 +197,6 @@ function TimeNow(){
 
 
  
-app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT = 3001, () => {
     console.log('JSON Server is running');
 })
