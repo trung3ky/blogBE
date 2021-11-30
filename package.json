@@ -4,11 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-<<<<<<< HEAD
-    "start": "node server.js",
-=======
-    "start": "node index.js",
->>>>>>> 8b4deadb032c1aaa1d9a7d7e300325cb3ea8fd39
+    "start": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -23,6 +19,7 @@
     "mysql": "^2.18.1",
     "mysql2": "^2.3.2",
     "nodemon": "^2.0.12",
-    "sequelize": "^6.7.0"
+    "sequelize": "^6.7.0",
+    "socket.io": "^4.3.2"
   }
 }
